@@ -29,7 +29,7 @@ app.use(
   })
 );
 
-app.get("/api/v2", () => {
+app.get("/api/v2", (req, res) => {
   res.status(200).json({
     success: true,
     message: "Working",
