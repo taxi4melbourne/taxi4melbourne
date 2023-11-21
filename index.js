@@ -3,6 +3,7 @@ const Stripe = require("stripe");
 const bodyParser = require("body-parser");
 const dotenv = require("dotenv");
 const cors = require("cors");
+const nodemailer = require("nodemailer");
 
 // ********* Handling Uncaught Exception **********
 process.on("uncaughtException", (error) => {
@@ -35,6 +36,7 @@ app.get("/api/v2", (req, res) => {
     message: "Working",
   });
 });
+
 app.post("/payment/process", async (req, res) => {
   const stripeClient = new Stripe(`${process.env.STRIPE_SEC_KEY}`);
 
@@ -61,10 +63,68 @@ app.post("/payment/process", async (req, res) => {
       message: "Payment successful",
     });
   } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Payment failed!, Something went wrong || ${error.message}`,
+    });
+  }
+});
+
+app.post("/payment/refund", async (req, res) => {
+  const stripeClient = new Stripe(`${process.env.STRIPE_SEC_KEY}`);
+
+  try {
+    const { paymentIntentId } = req.body;
+
+    const refund = await stripeClient.refunds.create({
+      payment_intent: paymentIntentId,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Payment refund successfull",
+      refund,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+app.post("/send/mail", async (req, res) => {
+  const { email, subject, message } = req.body;
+
+  try {
+    const transport = nodemailer.createTransport({
+      host: process.env.SMPT_HOST,
+      port: process.env.SMPT_PORT,
+      service: process.env.SMPT_SERVICE,
+      auth: {
+        user: process.env.SMPT_USER,
+        pass: process.env.SMPT_PASSWORD,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.SMPT_USER,
+      to: email,
+      subject: subject,
+      html: message,
+    };
+
+    await transport.sendMail(mailOptions);
+
+    res.status(200).json({
+      success: true,
+      message: "Message has been send to the customer successfully.",
+    });
+  } catch (error) {
     console.log(error);
     res.status(500).json({
       success: false,
-      message: "Payment failed!, Something went wrong",
+      message: error.message,
     });
   }
 });
